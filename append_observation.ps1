@@ -52,6 +52,9 @@ function Get-TraitRules {
   }
 
   $parsed = Get-Content -Raw $RulesPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+  if ($null -eq $parsed -or $parsed -isnot [pscustomobject]) {
+    throw "Trait rules file must contain a JSON object: $RulesPath"
+  }
 
   foreach ($trait in (ConvertTo-StringArray $parsed.ignored_exact_traits)) {
     [void]$rules.ignoredExact.Add($trait)

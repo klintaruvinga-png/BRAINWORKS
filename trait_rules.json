@@ -11,6 +11,18 @@
       ],
       "rationale": "These traits all describe Kudzie preferring one shared BrainWorks source/control plane rather than scattered agent-local memory.",
       "added": "2026-06-30"
+    },
+    {
+      "canonical_trait": "requires_runtime_proof_before_accepting_infrastructure",
+      "canonical_category": "personality",
+      "aliases": [
+        "prioritizes_runtime_agent_proof_over_static_wiring",
+        "prioritizes_runtime_write_proof_over_static_wiring",
+        "rejects_fix_claims_until_exact_enforcement_point_confirmed",
+        "treats_green_automated_checks_as_partial_signal_not_completion"
+      ],
+      "rationale": "These traits all describe Kudzie withholding acceptance of claimed-done status until the exact enforcement point or live runtime evidence has been verified.",
+      "added": "2026-06-30"
     }
   ],
   "ignored_exact_traits": [
