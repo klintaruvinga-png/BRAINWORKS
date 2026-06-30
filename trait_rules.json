@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "aliases": [
+    {
+      "canonical_trait": "prefers_single_canonical_source_of_truth",
+      "canonical_category": "workflow",
+      "aliases": [
+        "values_canonical_single_source_of_truth",
+        "pushes_for_shared_central_memory_across_tools",
+        "prefers_centralized_control_planes"
+      ],
+      "rationale": "These traits all describe Kudzie preferring one shared BrainWorks source/control plane rather than scattered agent-local memory.",
+      "added": "2026-06-30"
+    }
+  ],
+  "ignored_exact_traits": [
+    "system_architecture",
+    "canonical_jsonl_appending",
+    "autonomous_observation_logging",
+    "established_shared_brainworks_location",
+    "brainworks_probe_write",
+    "vscode_read_file_autoapproval_probe",
+    "claude_code_clean_folder_write_probe",
+    "permission_prompt_identification",
+    "queries_metadata_properties"
+  ],
+  "ignored_patterns": [
+    "^brainworks_probe_.*$",
+    "^.*_probe_write$",
+    "^.*_write_probe$",
+    "^.*_read_file_autoapproval_probe$",
+    "^.*_permission_probe$",
+    "^canonical_jsonl_.*$",
+    "^autonomous_observation_.*$",
+    "^.*_metadata_properties$"
+  ]
+}

@@ -11,10 +11,89 @@ if (-not $Path) {
 }
 
 $logPath = Join-Path $Path 'observations.jsonl'
+$traitRulesPath = Join-Path $Path 'trait_rules.json'
 
 if (-not (Test-Path $logPath)) {
   throw "Log file not found: $logPath"
 }
+
+function ConvertTo-StringArray {
+  param([object]$Value)
+
+  $result = New-Object System.Collections.Generic.List[string]
+  if ($null -eq $Value) {
+    return $result.ToArray()
+  }
+
+  if ($Value -is [System.Array]) {
+    foreach ($item in $Value) {
+      if (-not [string]::IsNullOrWhiteSpace([string]$item)) {
+        [void]$result.Add([string]$item)
+      }
+    }
+  }
+  elseif (-not [string]::IsNullOrWhiteSpace([string]$Value)) {
+    [void]$result.Add([string]$Value)
+  }
+
+  return $result.ToArray()
+}
+
+function Get-TraitRules {
+  param([string]$RulesPath)
+
+  $rules = [ordered]@{
+    ignoredExact = New-Object System.Collections.Generic.HashSet[string]
+    ignoredPatterns = New-Object System.Collections.Generic.List[string]
+  }
+
+  if (-not (Test-Path $RulesPath)) {
+    return $rules
+  }
+
+  $parsed = Get-Content -Raw $RulesPath | ConvertFrom-Json
+
+  foreach ($trait in (ConvertTo-StringArray $parsed.ignored_exact_traits)) {
+    [void]$rules.ignoredExact.Add($trait)
+  }
+
+  foreach ($pattern in (ConvertTo-StringArray $parsed.ignored_patterns)) {
+    [void]$rules.ignoredPatterns.Add($pattern)
+  }
+
+  return $rules
+}
+
+function Test-IgnoredTrait {
+  param(
+    [string]$Trait,
+    [object]$Rules
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Trait)) {
+    return $false
+  }
+
+  if ($Rules.ignoredExact.Contains($Trait)) {
+    return $true
+  }
+
+  foreach ($pattern in $Rules.ignoredPatterns) {
+    if ($Trait -match $pattern) {
+      return $true
+    }
+  }
+
+  return $false
+}
+
+function Test-SnakeCaseTrait {
+  param([string]$Trait)
+
+  return ($Trait -cmatch '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$')
+}
+
+$traitRules = Get-TraitRules -RulesPath $traitRulesPath
 
 $requiredTopLevel = @('date', 'agent', 'session_type', 'observations', 'session_summary', 'rule_of_three_flags')
 $requiredObservation = @('category', 'trait', 'detail', 'confidence')
@@ -69,6 +148,8 @@ Get-Content $logPath | ForEach-Object {
     }
   }
 
+  $observationTraits = New-Object System.Collections.Generic.HashSet[string]
+
   if ($entry.observations -isnot [System.Array] -or $entry.observations.Count -lt 1) {
     $lineIssues += "Line ${lineNumber}: 'observations' must be a non-empty array."
   }
@@ -80,6 +161,19 @@ Get-Content $logPath | ForEach-Object {
         }
         elseif ([string]::IsNullOrWhiteSpace([string]$obs.$field)) {
           $lineIssues += "Line ${lineNumber}: observation field '$field' must not be empty."
+        }
+      }
+
+      if ($obs.PSObject.Properties.Name.Contains('trait') -and -not [string]::IsNullOrWhiteSpace([string]$obs.trait)) {
+        $obsTrait = [string]$obs.trait
+        [void]$observationTraits.Add($obsTrait)
+
+        if (-not (Test-SnakeCaseTrait -Trait $obsTrait)) {
+          $lineWarnings += "Line ${lineNumber}: observation trait '$obsTrait' is not snake_case."
+        }
+
+        if (Test-IgnoredTrait -Trait $obsTrait -Rules $traitRules) {
+          $lineWarnings += "Line ${lineNumber}: observation trait '$obsTrait' is self-telemetry and ignored by promotion."
         }
       }
 
@@ -108,12 +202,34 @@ Get-Content $logPath | ForEach-Object {
         $lineIssues += "Line ${lineNumber}: rule_of_three_flags trait must not be empty."
       }
 
+      if ($flag.PSObject.Properties.Name.Contains('trait') -and -not [string]::IsNullOrWhiteSpace([string]$flag.trait)) {
+        $flagTrait = [string]$flag.trait
+
+        if (-not (Test-SnakeCaseTrait -Trait $flagTrait)) {
+          $lineWarnings += "Line ${lineNumber}: rule_of_three_flags trait '$flagTrait' is not snake_case."
+        }
+
+        if (-not $observationTraits.Contains($flagTrait)) {
+          $lineWarnings += "Line ${lineNumber}: rule_of_three_flags trait '$flagTrait' is not present in same-entry observations."
+        }
+
+        if (Test-IgnoredTrait -Trait $flagTrait -Rules $traitRules) {
+          $lineWarnings += "Line ${lineNumber}: rule_of_three_flags trait '$flagTrait' is self-telemetry and ignored by promotion."
+        }
+      }
+
       if ($flag.PSObject.Properties.Name.Contains('times_observed') -and (($flag.times_observed -isnot [int] -and $flag.times_observed -isnot [long]) -or $flag.times_observed -lt 1)) {
         $lineIssues += "Line ${lineNumber}: rule_of_three_flags times_observed must be a positive integer."
+      }
+      elseif ($flag.PSObject.Properties.Name.Contains('times_observed') -and $flag.times_observed -gt 1) {
+        $lineWarnings += "Line ${lineNumber}: rule_of_three_flags times_observed should be 1 for local session notices."
       }
 
       if ($flag.PSObject.Properties.Name.Contains('promote') -and $flag.promote -isnot [bool]) {
         $lineIssues += "Line ${lineNumber}: rule_of_three_flags promote must be boolean."
+      }
+      elseif ($flag.PSObject.Properties.Name.Contains('promote') -and $flag.promote -eq $true) {
+        $lineWarnings += "Line ${lineNumber}: rule_of_three_flags promote should be false; promotion is derived by promote_brainworks.ps1."
       }
     }
   }

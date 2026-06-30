@@ -7,6 +7,7 @@ Canonical files:
 - `C:\Users\Kudzie\OneDrive\BrainWorks\BrainWorks.md`
 - `C:\Users\Kudzie\OneDrive\BrainWorks\observations.jsonl`
 - `C:\Users\Kudzie\OneDrive\BrainWorks\append_observation.ps1`
+- `C:\Users\Kudzie\OneDrive\BrainWorks\trait_rules.json`
 
 Role split:
 
@@ -45,6 +46,10 @@ Use `-Json` only when the JSON payload is already stored in a PowerShell variabl
 If direct append is unavailable, output the JSON block for manual paste.
 
 One object per line. Never overwrite. Always append.
+
+`rule_of_three_flags` are local one-session notices only. They help a producer point at traits observed in the same entry, but they do not make a trait promotion-ready. Every flag must use a trait that also appears in that entry's `observations`, `times_observed` must be `1`, and `promote` must be `false`.
+
+Trait aliases are maintained by the curator in `trait_rules.json` with explicit canonical categories and rationale. Producers should write the clearest observed snake_case trait for the session and let `promote_brainworks.ps1` normalize aliases, ignore self-telemetry, count distinct dates, and derive promotion readiness.
 
 Recommended `agent` values:
 
@@ -125,5 +130,8 @@ TECHNICAL AND WORKFLOW:
 - Record only observations grounded in Kudzie's behaviour, statements, or direct evidence.
 - One JSON object per line. No wrapping arrays. No trailing commas.
 - Never store passwords, credentials, raw chat logs, or temporary emotions.
-- A trait repeated many times in one session still counts as one session date in `rule_of_three_flags`.
+- Traits must be snake_case in both `observations` and `rule_of_three_flags`.
+- Do not record agent self-telemetry as user evidence. Examples include probe-write traits, metadata-query traits, canonical JSONL appending, autonomous observation logging, and system setup mechanics.
+- A trait repeated many times in one session still counts as one local notice. Set `times_observed` to `1`.
+- Producers must never set `promote` to `true`. Promotion is derived by `promote_brainworks.ps1` from distinct dates and curator-maintained alias rules.
 - Producers do not promote, curate, or rewrite `BrainWorks.md`. OpenClaw does that.

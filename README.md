@@ -15,6 +15,7 @@ Agents read the curated model before meaningful work. Producers append evidence 
 | `append_observation.ps1` | Validates and appends one observation entry. |
 | `validate_observations.ps1` | Checks JSONL structure and BrainWorks schema. |
 | `promote_brainworks.ps1` | Generates promotion candidates from repeated traits. |
+| `trait_rules.json` | Curator-maintained trait aliases and ignored self-telemetry rules. |
 | `sync_brainworks_agents.ps1` | Writes BrainWorks instructions into supported agent surfaces. |
 | `verify_brainworks_agents.ps1` | Verifies static wiring, permissions, CLI presence, and append behavior. |
 | `BRAINWORKS_VERIFICATION.md` | Current verification record and known runtime blockers. |
@@ -54,6 +55,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\validate_observations.ps1 
 
 The validator currently reports legacy warnings for early entries that predate the personality-observation rule. New entries must pass the stricter appender checks.
 
+`rule_of_three_flags` are local one-session notices only. For new appends, each flag trait must appear in the same entry's `observations`, `times_observed` must be `1`, and `promote` must be `false`. Producers should not use flags to decide promotion readiness.
+
+Traits must be snake_case. Do not record self-telemetry as evidence about Kudzie, including probe-write traits, metadata-query traits, canonical JSONL appending, autonomous observation logging, or system setup mechanics.
+
 ## Curator Workflow
 
 Run validation before any curation pass:
@@ -69,6 +74,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\promote_brainworks.ps1 -Pa
 ```
 
 Promote only evidence-backed patterns. Count distinct session dates, not repeated mentions in one session.
+
+`promote_brainworks.ps1` derives readiness from observations only. It ignores `rule_of_three_flags`, normalizes curator-maintained aliases from `trait_rules.json`, filters self-telemetry traits, and reports the original trait names that contributed to each canonical trait.
 
 ## Agent Sync
 
@@ -97,6 +104,7 @@ Track the BrainWorks source:
 - `AGENTS.md`
 - instruction files
 - PowerShell scripts
+- `trait_rules.json`
 - verification and rollout docs
 
 Do not track local generated tool state:
@@ -109,17 +117,3 @@ Do not track local generated tool state:
 - editor folders
 
 `observations.jsonl` is tracked by design. It should contain distilled evidence only. Do not store credentials, raw transcripts, or private temporary emotion in it.
-
-## Current Review
-
-The active review branch is:
-
-```text
-codex/brainworks-environment-verification
-```
-
-The open pull request is:
-
-```text
-https://github.com/klintaruvinga-png/BRAINWORKS/pull/1
-```
