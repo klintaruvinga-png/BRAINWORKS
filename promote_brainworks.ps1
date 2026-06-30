@@ -55,7 +55,7 @@ function Get-TraitRules {
     throw "Trait rules file not found: $RulesPath"
   }
 
-  $parsed = Get-Content -Raw $RulesPath | ConvertFrom-Json
+  $parsed = Get-Content -Raw $RulesPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 
   foreach ($item in $parsed.aliases) {
     if (-not $item.canonical_trait) {
@@ -260,9 +260,7 @@ else {
   foreach ($item in $ready) {
     $itemAliases = @($item['aliases'])
     Write-Output (" Trait: {0}" -f $item['trait'])
-    if ($itemAliases.Count -gt 0) {
-      Write-Output (" Aliases observed: {0}" -f ($itemAliases -join ', '))
-    }
+    Write-Output (" Aliases observed: {0}" -f ($itemAliases -join ', '))
     Write-Output (" Original traits: {0}" -f (@($item['original_traits']) -join ', '))
     Write-Output (" Category: {0}" -f $item['category'])
     Write-Output (" Observed dates: {0}" -f (@($item['dates']) -join ', '))
