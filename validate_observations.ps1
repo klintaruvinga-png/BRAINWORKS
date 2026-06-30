@@ -48,7 +48,7 @@ function Get-TraitRules {
   }
 
   if (-not (Test-Path $RulesPath)) {
-    return $rules
+    throw "Trait rules file not found: $RulesPath"
   }
 
   $parsed = Get-Content -Raw $RulesPath | ConvertFrom-Json

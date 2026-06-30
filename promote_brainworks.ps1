@@ -52,7 +52,7 @@ function Get-TraitRules {
   }
 
   if (-not (Test-Path $RulesPath)) {
-    return $rules
+    throw "Trait rules file not found: $RulesPath"
   }
 
   $parsed = Get-Content -Raw $RulesPath | ConvertFrom-Json
@@ -298,10 +298,9 @@ else {
   foreach ($item in $conflicts) {
     Write-Output (" Trait: {0}" -f $item['trait'])
     Write-Output (" Categories: {0}" -f (@($item['categories']) -join ', '))
+    Write-Output (" Existing: (not yet tracked)" -f '')
+    Write-Output (" New evidence: (not yet tracked)" -f '')
     Write-Output (" Resolution: {0}" -f $item['resolution'])
   }
 }
-Write-Output ''
-Write-Output 'OWNER SECTIONS:'
-Write-Output ' None proposed automatically. Curator review required.'
 Write-Output '---'
