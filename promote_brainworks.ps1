@@ -14,11 +14,13 @@ if (-not (Test-Path $logPath)) {
   throw "Log file not found: $logPath"
 }
 
-if (Test-Path $validatePath) {
-  & $validatePath -Path $Path | Out-Null
-  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-    throw 'Validation failed. Fix observations.jsonl before promotion.'
-  }
+if (-not (Test-Path $validatePath)) {
+  throw "Validator not found: $validatePath"
+}
+
+& $validatePath -Path $Path | Out-Null
+if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+  throw 'Validation failed. Fix observations.jsonl before promotion.'
 }
 
 $ignoredTraits = @(
@@ -36,9 +38,13 @@ $sectionMap = @{
 }
 
 $traits = @{}
+$sessionIndex = 0
 
 Get-Content $logPath | ForEach-Object {
+  $sessionIndex++
   $entry = $_ | ConvertFrom-Json
+  $sessionKey = "line-$sessionIndex"
+  $sessionLabel = if ($entry.date) { "{0} session {1}" -f $entry.date, $sessionIndex } else { "session $sessionIndex" }
 
   foreach ($obs in $entry.observations) {
     if ($ignoredTraits -contains $obs.trait) {
@@ -48,12 +54,16 @@ Get-Content $logPath | ForEach-Object {
     if (-not $traits.ContainsKey($obs.trait)) {
       $traits[$obs.trait] = [ordered]@{
         category = $obs.category
-        dates = New-Object System.Collections.Generic.HashSet[string]
+        sessions = New-Object System.Collections.Generic.HashSet[string]
+        sessionLabels = New-Object System.Collections.Generic.List[string]
         details = New-Object System.Collections.Generic.List[string]
       }
     }
 
-    [void]$traits[$obs.trait].dates.Add($entry.date)
+    if ($traits[$obs.trait].sessions.Add($sessionKey)) {
+      [void]$traits[$obs.trait].sessionLabels.Add($sessionLabel)
+    }
+
     if ($obs.detail -and -not $traits[$obs.trait].details.Contains($obs.detail)) {
       [void]$traits[$obs.trait].details.Add($obs.detail)
     }
@@ -65,8 +75,8 @@ $building = @()
 
 foreach ($traitName in ($traits.Keys | Sort-Object)) {
   $trait = $traits[$traitName]
-  $dateList = $trait.dates.ToArray() | Sort-Object
-  $count = $dateList.Count
+  $sessionList = $trait.sessionLabels.ToArray() | Sort-Object
+  $count = $trait.sessions.Count
   $target = if ($sectionMap.ContainsKey($trait.category)) { $sectionMap[$trait.category] } else { 'Behavioural Observations' }
   $proposedText = if ($trait.details.Count -gt 0) { $trait.details[$trait.details.Count - 1] } else { $traitName }
 
@@ -74,7 +84,7 @@ foreach ($traitName in ($traits.Keys | Sort-Object)) {
     $ready += [ordered]@{
       trait = $traitName
       category = $trait.category
-      dates = $dateList
+      sessions = $sessionList
       target = $target
       proposed = $proposedText
       confidence = 'Strong'
@@ -100,7 +110,7 @@ else {
   foreach ($item in $ready) {
     Write-Output (" Trait: {0}" -f $item.trait)
     Write-Output (" Category: {0}" -f $item.category)
-    Write-Output (" Observed: {0}" -f ($item.dates -join ', '))
+    Write-Output (" Observed: {0}" -f ($item.sessions -join ', '))
     Write-Output (" Proposed text: {0}" -f $item.proposed)
     Write-Output (" Target section: {0}" -f $item.target)
     Write-Output (" Confidence: {0}" -f $item.confidence)

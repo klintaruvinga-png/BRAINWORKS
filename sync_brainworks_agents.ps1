@@ -139,29 +139,6 @@ description: Use when working with Kudzie on this machine. Load BrainWorks, reco
 
 $cursorPersonalContext = "BrainWorks lives at $Root. Read BrainWorks.md before significant planning, implementation, or decision-making work. Treat BrainWorks.md as curated memory and observations.jsonl as raw evidence. Never edit BrainWorks.md directly; OpenClaw is the only curator. At the end of each significant chat, editor, or CLI session, append one canonical JSONL entry to observations.jsonl. Prefer piping JSON through stdin with @'...json...'@ | powershell -File $Root\append_observation.ps1; use -Json only when the payload is already stored in a PowerShell variable. Record both personality and technical or workflow evidence, and follow $Root\agent_write_instruction.md for the exact schema and rules."
 
-$targets = @(
-  @{ Path = Join-Path $UserHome '.codex\AGENTS.md'; Content = $producerProtocol },
-  @{ Path = Join-Path $UserHome '.codex\instructions.md'; Content = $producerProtocol },
-  @{ Path = Join-Path $UserHome '.claude\CLAUDE.md'; Content = $producerProtocol },
-  @{ Path = Join-Path $UserHome '.github\copilot-instructions.md'; Content = $producerProtocol },
-  @{ Path = Join-Path $UserHome '.cursor\rules\brainworks-observation.mdc'; Content = $cursorRule },
-  @{ Path = Join-Path $UserHome '.gemini\GEMINI.md'; Content = $antigravityAgents },
-  @{ Path = Join-Path $UserHome '.gemini\config\AGENTS.md'; Content = $antigravityAgents },
-  @{ Path = Join-Path $UserHome '.copilot\copilot-instructions.md'; Content = $copilotCliInstruction },
-  @{ Path = Join-Path $UserHome '.copilot\instructions\brainworks.instructions.md'; Content = $copilotInstruction },
-  @{ Path = Join-Path $UserHome '.agents\skills\brainworks-observer\SKILL.md'; Content = $skillContent },
-  @{ Path = Join-Path $UserHome '.gemini\skills\brainworks-observer\SKILL.md'; Content = $skillContent }
-)
-
-foreach ($target in $targets) {
-  $dir = Split-Path -Parent $target.Path
-  if (-not (Test-Path $dir)) {
-    New-Item -ItemType Directory -Force -Path $dir | Out-Null
-  }
-
-  Set-Content -Path $target.Path -Value $target.Content -NoNewline
-}
-
 function Set-ManagedBrainWorksBlock {
   param(
     [Parameter(Mandatory = $true)]
@@ -195,6 +172,40 @@ function Set-ManagedBrainWorksBlock {
   }
 
   Set-Content -Path $Path -Value $updated -NoNewline
+}
+
+$targets = @(
+  @{ Path = Join-Path $UserHome '.codex\AGENTS.md'; Content = $producerProtocol },
+  @{ Path = Join-Path $UserHome '.codex\instructions.md'; Content = $producerProtocol },
+  @{ Path = Join-Path $UserHome '.claude\CLAUDE.md'; Content = $producerProtocol },
+  @{ Path = Join-Path $UserHome '.github\copilot-instructions.md'; Content = $producerProtocol },
+  @{ Path = Join-Path $UserHome '.cursor\rules\brainworks-observation.mdc'; Content = $cursorRule },
+  @{ Path = Join-Path $UserHome '.gemini\GEMINI.md'; Content = $antigravityAgents },
+  @{ Path = Join-Path $UserHome '.gemini\config\AGENTS.md'; Content = $antigravityAgents },
+  @{ Path = Join-Path $UserHome '.copilot\copilot-instructions.md'; Content = $copilotCliInstruction },
+  @{ Path = Join-Path $UserHome '.copilot\instructions\brainworks.instructions.md'; Content = $copilotInstruction },
+  @{ Path = Join-Path $UserHome '.agents\skills\brainworks-observer\SKILL.md'; Content = $skillContent },
+  @{ Path = Join-Path $UserHome '.gemini\skills\brainworks-observer\SKILL.md'; Content = $skillContent }
+)
+
+$sharedInstructionTargets = @(
+  (Join-Path $UserHome '.codex\AGENTS.md'),
+  (Join-Path $UserHome '.claude\CLAUDE.md'),
+  (Join-Path $UserHome '.github\copilot-instructions.md')
+)
+
+foreach ($target in $targets) {
+  $dir = Split-Path -Parent $target.Path
+  if (-not (Test-Path $dir)) {
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  }
+
+  if ($sharedInstructionTargets -contains $target.Path) {
+    Set-ManagedBrainWorksBlock -Path $target.Path -Content $target.Content
+  }
+  else {
+    Set-Content -Path $target.Path -Value $target.Content -NoNewline
+  }
 }
 
 Set-ManagedBrainWorksBlock -Path (Join-Path $OpenClawWorkspace 'AGENTS.md') -Content $openClawProtocol
@@ -257,9 +268,10 @@ function Set-BrainWorksTerminalAutoApprove {
     $autoApprove = [pscustomobject]@{}
   }
 
-  $readPattern = '/.*(Get-Content|Select-String|rg).*C:\\Users\\Kudzie\\OneDrive\\BrainWorks\\(BrainWorks\.md|agent_write_instruction\.md|opencode_claw_instruction\.md|BRAINWORKS_UPDATE_PLAN\.md|BRAINWORKS_VERIFICATION\.md|observations\.jsonl).*/'
-  $appendPattern = '/.*powershell(\.exe)?(\s+-NoProfile)?(\s+-ExecutionPolicy\s+Bypass)?\s+-File\s+[''"]?C:\\Users\\Kudzie\\OneDrive\\BrainWorks\\append_observation\.ps1[''"]?.*/'
-  $validatePattern = '/.*powershell(\.exe)?(\s+-NoProfile)?(\s+-ExecutionPolicy\s+Bypass)?\s+-File\s+[''"]?C:\\Users\\Kudzie\\OneDrive\\BrainWorks\\(validate_observations|verify_brainworks_agents)\.ps1[''"]?.*/'
+  $escapedRoot = [regex]::Escape($Root)
+  $readPattern = '/.*(Get-Content|Select-String|rg).*{0}\\(BrainWorks\.md|agent_write_instruction\.md|opencode_claw_instruction\.md|BRAINWORKS_UPDATE_PLAN\.md|BRAINWORKS_VERIFICATION\.md|observations\.jsonl).*/' -f $escapedRoot
+  $appendPattern = '/.*powershell(\.exe)?(\s+-NoProfile)?(\s+-ExecutionPolicy\s+Bypass)?\s+-File\s+[''"]?{0}\\append_observation\.ps1[''"]?.*/' -f $escapedRoot
+  $validatePattern = '/.*powershell(\.exe)?(\s+-NoProfile)?(\s+-ExecutionPolicy\s+Bypass)?\s+-File\s+[''"]?{0}\\(validate_observations|verify_brainworks_agents)\.ps1[''"]?.*/' -f $escapedRoot
 
   foreach ($pattern in @($readPattern, $appendPattern, $validatePattern)) {
     Set-JsonProperty -Object $autoApprove -Name $pattern -Value ([pscustomobject]@{
@@ -289,8 +301,8 @@ function Set-VSCodeBrainWorksInstructions {
   Set-JsonProperty -Object $settings -Name 'github.copilot.chat.codeGeneration.useInstructionFiles' -Value $true
 
   $globalAutoApprove = $settings.'chat.tools.global.autoApprove'
-  if ($globalAutoApprove -isnot [bool]) {
-    if (-not $globalAutoApprove) {
+  if ($globalAutoApprove -ne $true) {
+    if ($globalAutoApprove -is [bool] -or -not $globalAutoApprove) {
       $globalAutoApprove = [pscustomobject]@{}
     }
 
@@ -332,12 +344,12 @@ function Add-ClaudePermissions {
   }
 
   $brainworksPermissions = @(
-    'PowerShell(Get-Content *C:\Users\Kudzie\OneDrive\BrainWorks*)',
-    'PowerShell(*C:\Users\Kudzie\OneDrive\BrainWorks\append_observation.ps1*)',
-    'PowerShell(*C:\Users\Kudzie\OneDrive\BrainWorks\validate_observations.ps1*)',
-    'PowerShell(*C:\Users\Kudzie\OneDrive\BrainWorks\verify_brainworks_agents.ps1*)',
-    'Bash(*C:\Users\Kudzie\OneDrive\BrainWorks\append_observation.ps1*)',
-    'Bash(*C:\Users\Kudzie\OneDrive\BrainWorks\validate_observations.ps1*)'
+    "PowerShell(Get-Content *$Root*)",
+    "PowerShell(*$Root\append_observation.ps1*)",
+    "PowerShell(*$Root\validate_observations.ps1*)",
+    "PowerShell(*$Root\verify_brainworks_agents.ps1*)",
+    "Bash(*$Root\append_observation.ps1*)",
+    "Bash(*$Root\validate_observations.ps1*)"
   )
 
   foreach ($permission in $brainworksPermissions) {
@@ -390,7 +402,15 @@ Add-AntigravityTrustedWorkspace -SettingsPath (Join-Path $UserHome '.gemini\anti
 
 $cursorDb = Join-Path $env:APPDATA 'Cursor\User\globalStorage\state.vscdb'
 $python = Get-Command python -ErrorAction SilentlyContinue
-if ((Test-Path $cursorDb) -and $python) {
+$cursorContextInjected = $false
+
+if (-not (Test-Path $cursorDb)) {
+  Write-Warning "Cursor personal context injection skipped because the database was not found: $cursorDb"
+}
+elseif (-not $python) {
+  Write-Warning 'Cursor personal context injection skipped because python was not found on PATH.'
+}
+else {
   $env:BW_CURSOR_DB = $cursorDb
   $env:BW_CURSOR_CONTEXT = $cursorPersonalContext
 
@@ -412,9 +432,22 @@ finally:
     conn.close()
 '@ | & $python.Source -
 
+  $cursorExitCode = $LASTEXITCODE
   Remove-Item Env:\BW_CURSOR_DB -ErrorAction SilentlyContinue
   Remove-Item Env:\BW_CURSOR_CONTEXT -ErrorAction SilentlyContinue
+
+  if ($cursorExitCode -ne 0) {
+    throw "Cursor personal context injection failed with exit code $cursorExitCode."
+  }
+
+  $cursorContextInjected = $true
 }
 
 Write-Output 'BrainWorks agent surfaces synced.'
+if ($cursorContextInjected) {
+  Write-Output 'Cursor personal context synced.'
+}
+else {
+  Write-Warning 'Cursor personal context was not synced.'
+}
 Write-Output "OpenClaw workspace targeted: $OpenClawWorkspace"

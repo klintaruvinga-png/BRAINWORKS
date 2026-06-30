@@ -117,7 +117,7 @@ foreach ($flag in $parsed.rule_of_three_flags) {
     throw "Invalid observation payload: rule_of_three_flags trait must not be empty."
   }
 
-  if ($flag.times_observed -isnot [int] -or $flag.times_observed -lt 1) {
+  if (($flag.times_observed -isnot [int] -and $flag.times_observed -isnot [long]) -or $flag.times_observed -lt 1) {
     throw "Invalid observation payload: rule_of_three_flags times_observed must be a positive integer."
   }
 
@@ -127,5 +127,34 @@ foreach ($flag in $parsed.rule_of_three_flags) {
 }
 
 $compactPayload = $parsed | ConvertTo-Json -Depth 100 -Compress
-Add-Content -Path $logPath -Value $compactPayload
+
+$resolvedLogPath = [System.IO.Path]::GetFullPath($logPath).ToLowerInvariant()
+$sha = [System.Security.Cryptography.SHA256]::Create()
+try {
+  $hashBytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($resolvedLogPath))
+}
+finally {
+  $sha.Dispose()
+}
+
+$hash = [BitConverter]::ToString($hashBytes).Replace('-', '')
+$mutex = [System.Threading.Mutex]::new($false, "Local\BrainWorksObservations-$hash")
+$lockTaken = $false
+
+try {
+  $lockTaken = $mutex.WaitOne([TimeSpan]::FromSeconds(30))
+  if (-not $lockTaken) {
+    throw "Timed out waiting for observation log append lock: $logPath"
+  }
+
+  Add-Content -Path $logPath -Value $compactPayload
+}
+finally {
+  if ($lockTaken) {
+    $mutex.ReleaseMutex()
+  }
+
+  $mutex.Dispose()
+}
+
 Write-Output "Appended observation to $logPath"

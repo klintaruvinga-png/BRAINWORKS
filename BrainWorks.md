@@ -4,7 +4,7 @@
 > **Initialised:** 2026-06-28
 > **Custodian:** OpenClaw Curator
 > **Last Updated:** 2026-06-29
-> **Source Log:** C:\Users\Kudzie\OneDrive\BrainWorks\observations.jsonl
+> **Source Log:** `observations.jsonl`
 
 ---
 
@@ -12,7 +12,7 @@
 
 BrainWorks.md is the persistent cognitive model of Kudzie.
 
-It is not a diary. It is not a conversation log. It is not a project record.
+It is not a diary. Nor is it a conversation log or project record.
 
 It is an evolving model of how Kudzie thinks - principles, patterns, preferences, blind spots, skills, goals, and recurring behaviours. Every AI agent working with Kudzie reads this before beginning significant work. Every addition must improve future reasoning.
 

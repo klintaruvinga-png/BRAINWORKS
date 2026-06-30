@@ -59,10 +59,18 @@ function Assert-TerminalAutoApprove {
     return
   }
 
-  $patterns = @($autoApprove.PSObject.Properties.Name)
   foreach ($needle in @('BrainWorks', 'append_observation', 'validate_observations', 'verify_brainworks_agents')) {
-    if (-not ($patterns | Where-Object { $_ -like "*$needle*" })) {
+    $matches = @($autoApprove.PSObject.Properties | Where-Object { $_.Name -like "*$needle*" })
+    if ($matches.Count -eq 0) {
       $script:failures += "$Label terminal auto-approval does not include $needle."
+      continue
+    }
+
+    $enabled = @($matches | Where-Object {
+      $_.Value.approve -eq $true -and $_.Value.matchCommandLine -eq $true
+    })
+    if ($enabled.Count -eq 0) {
+      $script:failures += "$Label terminal auto-approval entry for $needle is missing approve=true and matchCommandLine=true."
     }
   }
 }
@@ -135,8 +143,18 @@ if (Test-Path $codeSettings) {
   if ($settings.'chat.useClaudeMdFile' -ne $true) { $failures += 'VS Code chat.useClaudeMdFile is not true.' }
   if ($settings.'chat.useAgentsMdFile' -ne $true) { $failures += 'VS Code chat.useAgentsMdFile is not true.' }
   if ($settings.'github.copilot.chat.codeGeneration.useInstructionFiles' -ne $true) { $failures += 'VS Code Copilot instruction files are not enabled.' }
-  if (-not $settings.'chat.instructionsFilesLocations') {
+  $instructionLocations = $settings.'chat.instructionsFilesLocations'
+  if (-not $instructionLocations) {
     $failures += 'VS Code chat.instructionsFilesLocations is missing.'
+  }
+  else {
+    $expectedInstructionDir = (Join-Path $UserHome '.copilot\instructions').TrimEnd('\', '/')
+    $enabledInstructionLocation = @($instructionLocations.PSObject.Properties | Where-Object {
+      $_.Name.TrimEnd('\', '/') -eq $expectedInstructionDir -and $_.Value -eq $true
+    })
+    if ($enabledInstructionLocation.Count -eq 0) {
+      $failures += "VS Code chat.instructionsFilesLocations does not enable $expectedInstructionDir."
+    }
   }
 
   $globalAutoApprove = $settings.'chat.tools.global.autoApprove'
@@ -163,7 +181,7 @@ $antiSettings = Join-Path $UserHome '.gemini\antigravity-cli\settings.json'
 if (Test-Path $antiSettings) {
   $anti = Get-Content -Raw $antiSettings | ConvertFrom-Json
   if ($anti.allowNonWorkspaceAccess -ne $true) {
-    $warnings += 'Antigravity allowNonWorkspaceAccess is not true.'
+    $failures += 'Antigravity allowNonWorkspaceAccess is not true.'
   }
   $trusted = @($anti.trustedWorkspaces)
   foreach ($workspace in @($UserHome, $Root)) {

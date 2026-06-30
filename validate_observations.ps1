@@ -108,7 +108,7 @@ Get-Content $logPath | ForEach-Object {
         $lineIssues += "Line ${lineNumber}: rule_of_three_flags trait must not be empty."
       }
 
-      if ($flag.PSObject.Properties.Name.Contains('times_observed') -and ($flag.times_observed -isnot [int] -or $flag.times_observed -lt 1)) {
+      if ($flag.PSObject.Properties.Name.Contains('times_observed') -and (($flag.times_observed -isnot [int] -and $flag.times_observed -isnot [long]) -or $flag.times_observed -lt 1)) {
         $lineIssues += "Line ${lineNumber}: rule_of_three_flags times_observed must be a positive integer."
       }
 

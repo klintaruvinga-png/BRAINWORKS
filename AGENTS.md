@@ -58,7 +58,7 @@ There is no formal test suite. Validation is file-specific.
 
 ## Commit & Pull Request Guidelines
 
-This directory is not currently a Git repository, so no local commit history is available to infer conventions. If the workspace is later placed under Git, use short imperative commit subjects such as `Add observation append example` or `Clarify promotion protocol`.
+This repository is Git-backed. Use short imperative commit subjects such as `Add observation append example` or `Clarify promotion protocol`.
 
 Pull requests should explain the changed file, the reason for the change, and any schema or workflow impact. Include before/after snippets when modifying `BrainWorks.md` structure or the JSONL schema.
 

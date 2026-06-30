@@ -1,4 +1,4 @@
-## BrainWorks Producer Protocol
+# BrainWorks Producer Protocol
 
 BrainWorks is the shared cross-tool memory system for Kudzie.
 

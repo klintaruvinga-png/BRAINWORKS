@@ -1,4 +1,4 @@
-## OpenClaw BrainWorks Curator Protocol
+# OpenClaw BrainWorks Curator Protocol
 
 All BrainWorks files live at:
 
