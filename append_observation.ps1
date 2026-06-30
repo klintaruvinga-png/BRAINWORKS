@@ -47,11 +47,11 @@ function Get-TraitRules {
     ignoredPatterns = New-Object System.Collections.Generic.List[string]
   }
 
-  if (-not (Test-Path $RulesPath)) {
+  if (-not (Test-Path -Path $RulesPath -PathType Leaf)) {
     throw "Trait rules file not found: $RulesPath"
   }
 
-  $parsed = Get-Content -Raw $RulesPath | ConvertFrom-Json
+  $parsed = Get-Content -Raw $RulesPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
 
   foreach ($trait in (ConvertTo-StringArray $parsed.ignored_exact_traits)) {
     [void]$rules.ignoredExact.Add($trait)
