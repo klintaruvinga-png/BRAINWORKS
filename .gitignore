@@ -1,0 +1,29 @@
+# Local generated agent/plugin state
+.agents/
+.codex/
+
+# Secrets and local environment
+.env
+.env.*
+*.pem
+*.key
+
+# Logs, temp files, and command output
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+copilot-session-*.md
+
+# Tool caches
+.cache/
+.tmp/
+tmp/
+temp/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
