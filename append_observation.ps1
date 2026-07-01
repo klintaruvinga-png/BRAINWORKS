@@ -11,9 +11,89 @@ if (-not $Path) {
 }
 
 $logPath = Join-Path $Path 'observations.jsonl'
+$traitRulesPath = Join-Path $Path 'trait_rules.json'
 
 if (-not (Test-Path $Path)) {
   New-Item -ItemType Directory -Force -Path $Path | Out-Null
+}
+
+function ConvertTo-StringArray {
+  param([object]$Value)
+
+  $result = New-Object System.Collections.Generic.List[string]
+  if ($null -eq $Value) {
+    return $result.ToArray()
+  }
+
+  if ($Value -is [System.Array]) {
+    foreach ($item in $Value) {
+      if (-not [string]::IsNullOrWhiteSpace([string]$item)) {
+        [void]$result.Add([string]$item)
+      }
+    }
+  }
+  elseif (-not [string]::IsNullOrWhiteSpace([string]$Value)) {
+    [void]$result.Add([string]$Value)
+  }
+
+  return $result.ToArray()
+}
+
+function Get-TraitRules {
+  param([string]$RulesPath)
+
+  $rules = [ordered]@{
+    ignoredExact = New-Object System.Collections.Generic.HashSet[string]
+    ignoredPatterns = New-Object System.Collections.Generic.List[string]
+  }
+
+  if (-not (Test-Path -Path $RulesPath -PathType Leaf)) {
+    throw "Trait rules file not found: $RulesPath"
+  }
+
+  $parsed = Get-Content -Raw $RulesPath -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+  if ($null -eq $parsed -or $parsed -isnot [pscustomobject]) {
+    throw "Trait rules file must contain a JSON object: $RulesPath"
+  }
+
+  foreach ($trait in (ConvertTo-StringArray $parsed.ignored_exact_traits)) {
+    [void]$rules.ignoredExact.Add($trait)
+  }
+
+  foreach ($pattern in (ConvertTo-StringArray $parsed.ignored_patterns)) {
+    [void]$rules.ignoredPatterns.Add($pattern)
+  }
+
+  return $rules
+}
+
+function Test-IgnoredTrait {
+  param(
+    [string]$Trait,
+    [object]$Rules
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Trait)) {
+    return $false
+  }
+
+  if ($Rules.ignoredExact.Contains($Trait)) {
+    return $true
+  }
+
+  foreach ($pattern in $Rules.ignoredPatterns) {
+    if ($Trait -match $pattern) {
+      return $true
+    }
+  }
+
+  return $false
+}
+
+function Test-SnakeCaseTrait {
+  param([string]$Trait)
+
+  return ($Trait -cmatch '^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$')
 }
 
 if ($Json) {
@@ -37,6 +117,8 @@ catch {
 if ($parsed -is [System.Array]) {
   throw 'Invalid observation payload: top-level JSON must be one object, not an array.'
 }
+
+$traitRules = Get-TraitRules -RulesPath $traitRulesPath
 
 $requiredTopLevel = @('date', 'agent', 'session_type', 'observations', 'session_summary', 'rule_of_three_flags')
 $requiredObservation = @('category', 'trait', 'detail', 'confidence')
@@ -65,6 +147,7 @@ if ($parsed.observations -isnot [System.Array] -or $parsed.observations.Count -l
 
 $hasPersonality = $false
 $hasTechnicalOrWorkflow = $false
+$observationTraits = New-Object System.Collections.Generic.HashSet[string]
 
 foreach ($observation in $parsed.observations) {
   foreach ($field in $requiredObservation) {
@@ -75,6 +158,17 @@ foreach ($observation in $parsed.observations) {
     if ([string]::IsNullOrWhiteSpace([string]$observation.$field)) {
       throw "Invalid observation payload: observation field '$field' must not be empty."
     }
+  }
+
+  $observationTrait = [string]$observation.trait
+  [void]$observationTraits.Add($observationTrait)
+
+  if (-not (Test-SnakeCaseTrait -Trait $observationTrait)) {
+    throw "Invalid observation payload: observation trait '$observationTrait' must be snake_case."
+  }
+
+  if (Test-IgnoredTrait -Trait $observationTrait -Rules $traitRules) {
+    throw "Invalid observation payload: observation trait '$observationTrait' is self-telemetry and must not be appended as user evidence."
   }
 
   if ($allowedCategories -notcontains $observation.category) {
@@ -113,16 +207,34 @@ foreach ($flag in $parsed.rule_of_three_flags) {
     }
   }
 
-  if ([string]::IsNullOrWhiteSpace([string]$flag.trait)) {
+  $flagTrait = [string]$flag.trait
+
+  if ([string]::IsNullOrWhiteSpace($flagTrait)) {
     throw "Invalid observation payload: rule_of_three_flags trait must not be empty."
   }
 
-  if (($flag.times_observed -isnot [int] -and $flag.times_observed -isnot [long]) -or $flag.times_observed -lt 1) {
-    throw "Invalid observation payload: rule_of_three_flags times_observed must be a positive integer."
+  if (-not (Test-SnakeCaseTrait -Trait $flagTrait)) {
+    throw "Invalid observation payload: rule_of_three_flags trait '$flagTrait' must be snake_case."
+  }
+
+  if (-not $observationTraits.Contains($flagTrait)) {
+    throw "Invalid observation payload: rule_of_three_flags trait '$flagTrait' must also appear in this entry's observations."
+  }
+
+  if (Test-IgnoredTrait -Trait $flagTrait -Rules $traitRules) {
+    throw "Invalid observation payload: rule_of_three_flags trait '$flagTrait' is self-telemetry and must not be appended as user evidence."
+  }
+
+  if (($flag.times_observed -isnot [int] -and $flag.times_observed -isnot [long]) -or $flag.times_observed -ne 1) {
+    throw "Invalid observation payload: rule_of_three_flags times_observed must be 1 for local session notices."
   }
 
   if ($flag.promote -isnot [bool]) {
     throw "Invalid observation payload: rule_of_three_flags promote must be boolean."
+  }
+
+  if ($flag.promote -ne $false) {
+    throw "Invalid observation payload: rule_of_three_flags promote must be false; promotion is derived by promote_brainworks.ps1."
   }
 }
 
