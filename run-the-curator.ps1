@@ -11,13 +11,24 @@ Set-Location -LiteralPath $BrainWorks
 $CuratorTimeoutSec = 600
 $cJob = Start-Job -ScriptBlock { param($p) & hermes -p curator chat -q $p 2>&1 } -ArgumentList $Prompt
 $cWait = Wait-Job -Job $cJob -Timeout $CuratorTimeoutSec
+$curatorFailed = $false
 if (-not $cWait) {
   Stop-Job -Job $cJob -ErrorAction SilentlyContinue
   Write-Output ("[curator] TIMEOUT after {0}s - chat did not finish. Continuing to graph rebuild." -f $CuratorTimeoutSec)
+  $curatorFailed = $true
 }
 else {
   $cJob.ChildJobs | ForEach-Object { $_.Output.ReadAll() } | ForEach-Object { Write-Output $_ }
-  Write-Output "[curator] chat completed."
+  if ($cJob.ChildJobs | Where-Object { $_.Error.Count -gt 0 }) {
+    $cJob.ChildJobs | ForEach-Object { $_.Error.ReadAll() } | ForEach-Object { Write-Output "[curator] ERROR: $_" }
+  }
+  if ($cJob.State -eq 'Failed' -or ($cJob.ChildJobs | Where-Object { $_.State -eq 'Failed' })) {
+    Write-Output "[curator] chat FAILED."
+    $curatorFailed = $true
+  }
+  else {
+    Write-Output "[curator] chat completed."
+  }
 }
 
 # Regenerate the Obsidian-style graph + provenance view after the curator pass
@@ -25,4 +36,12 @@ else {
 $buildScript = Join-Path $BrainWorks 'build_brainworks_graph.ps1'
 if (Test-Path $buildScript) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File $buildScript -Path $BrainWorks 2>&1 | ForEach-Object { Write-Output $_ }
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+    Write-Output "[graph] build script FAILED with exit code $LASTEXITCODE"
+    exit 1
+  }
+}
+
+if ($curatorFailed) {
+  exit 1
 }

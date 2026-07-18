@@ -177,6 +177,48 @@ foreach ($sn in $sectionNames) {
   }
 }
 
+# Layer/category-to-section mapping (from promote_brainworks.ps1)
+$sectionMap = @{
+  personality = 'Personality Model'
+  workflow = 'Preferred Workflows'
+  technical = 'Standards'
+  communication = 'Communication Style'
+  decision_making = 'Decision Making'
+}
+$layerSectionMap = @{
+  identity = 'Identity'
+  knowledge = 'Knowledge & Confidence Map'
+  gap = 'Knowledge Gaps'
+  mistake = 'Mistake Library'
+  bias = 'Thinking Biases'
+  belief = 'Belief Evolution'
+  habit = 'Work Habits'
+  mental_model = 'Mental Models'
+}
+
+# Emit trait-to-curated-section edges
+foreach ($key in $traits.Keys) {
+  $t = $traits[$key]
+  $traitLayer = $t.layer
+  $target = if ($traitLayer -and $layerSectionMap.ContainsKey($traitLayer)) {
+    $layerSectionMap[$traitLayer]
+  }
+  elseif ($sectionMap.ContainsKey($t.category)) {
+    $sectionMap[$t.category]
+  }
+  else {
+    'Behavioural Observations'
+  }
+
+  if ($sectionNames.Contains($target)) {
+    $edges += [ordered]@{
+      source = "trait:$key"
+      target = "sec:$target"
+      kind   = 'curated'
+    }
+  }
+}
+
 $graph = [ordered]@{
   generated   = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ss')
   root        = $Path
@@ -315,9 +357,48 @@ const nodeEls = nodes.map(n => {
     tip.style.display = 'block';
     tip.style.left = Math.min(ev.clientX + 12, window.innerWidth - 330) + 'px';
     tip.style.top = (ev.clientY + 12) + 'px';
-    let body = '<b>' + n.label + '</b><br>type: ' + n.type;
-    if (n.type === 'trait') { body += '<br>layer: ' + (n.layer||'-') + '<br>category: ' + n.category + '<br>state: ' + n.state + '<br>dates: ' + n.dates + '<br>sources: ' + (n.sources||[]).join(', '); if (n.aliases && n.aliases.length) body += '<br>aliases: ' + n.aliases.join(', '); if (n.detail) body += '<br><i>' + n.detail + '</i>'; }
-    tip.innerHTML = body;
+    tip.innerHTML = '';
+    const b = document.createElement('b');
+    b.textContent = n.label;
+    tip.appendChild(b);
+    tip.appendChild(document.createElement('br'));
+    const typeSpan = document.createElement('span');
+    typeSpan.textContent = 'type: ' + n.type;
+    tip.appendChild(typeSpan);
+    if (n.type === 'trait') {
+      tip.appendChild(document.createElement('br'));
+      const layerSpan = document.createElement('span');
+      layerSpan.textContent = 'layer: ' + (n.layer||'-');
+      tip.appendChild(layerSpan);
+      tip.appendChild(document.createElement('br'));
+      const catSpan = document.createElement('span');
+      catSpan.textContent = 'category: ' + n.category;
+      tip.appendChild(catSpan);
+      tip.appendChild(document.createElement('br'));
+      const stateSpan = document.createElement('span');
+      stateSpan.textContent = 'state: ' + n.state;
+      tip.appendChild(stateSpan);
+      tip.appendChild(document.createElement('br'));
+      const datesSpan = document.createElement('span');
+      datesSpan.textContent = 'dates: ' + n.dates;
+      tip.appendChild(datesSpan);
+      tip.appendChild(document.createElement('br'));
+      const srcSpan = document.createElement('span');
+      srcSpan.textContent = 'sources: ' + (n.sources||[]).join(', ');
+      tip.appendChild(srcSpan);
+      if (n.aliases && n.aliases.length) {
+        tip.appendChild(document.createElement('br'));
+        const aliasSpan = document.createElement('span');
+        aliasSpan.textContent = 'aliases: ' + n.aliases.join(', ');
+        tip.appendChild(aliasSpan);
+      }
+      if (n.detail) {
+        tip.appendChild(document.createElement('br'));
+        const detailSpan = document.createElement('i');
+        detailSpan.textContent = n.detail;
+        tip.appendChild(detailSpan);
+      }
+    }
   });
   g.addEventListener('mouseleave', () => tip.style.display = 'none');
   return g;

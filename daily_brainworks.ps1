@@ -38,27 +38,39 @@ function Invoke-Step {
   if (-not $done) {
     Stop-Job -Job $job -ErrorAction SilentlyContinue
     Write-Output ("[{0}] TIMEOUT after {1}s - skipped." -f $Label, $StepTimeoutSeconds)
-    return
+    return $false
   }
   $job.ChildJobs | ForEach-Object { $_.Output.ReadAll() } | ForEach-Object { Write-Output ("[{0}] {1}" -f $Label, $_) }
+  if ($job.ChildJobs | Where-Object { $_.Error.Count -gt 0 }) {
+    $job.ChildJobs | ForEach-Object { $_.Error.ReadAll() } | ForEach-Object { Write-Output ("[{0}] ERROR: {1}" -f $Label, $_) }
+  }
+  if ($job.State -eq 'Failed' -or ($job.ChildJobs | Where-Object { $_.State -eq 'Failed' })) {
+    Write-Output ("[{0}] FAILED - job did not complete successfully." -f $Label)
+    return $false
+  }
   Write-Output ("[{0}] done." -f $Label)
+  return $true
 }
 
 Set-Location -LiteralPath $Root
 
-Invoke-Step -Label 'promoter' -Block {
+$promoterOk = Invoke-Step -Label 'promoter' -Block {
   $p = Join-Path $using:Root 'promote_brainworks.ps1'
-  if (Test-Path $p) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $p -Path $using:Root 2>&1
-  }
+  if (-not (Test-Path $p)) { throw ("promoter script missing: " + $p) }
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $p -Path $using:Root 2>&1
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-Invoke-Step -Label 'graph' -Block {
+$graphOk = Invoke-Step -Label 'graph' -Block {
   $g = Join-Path $using:Root 'build_brainworks_graph.ps1'
-  if (Test-Path $g) {
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $g -Path $using:Root 2>&1
-  }
-  else { throw ("build script missing: " + $g) }
+  if (-not (Test-Path $g)) { throw ("build script missing: " + $g) }
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $g -Path $using:Root 2>&1
+  if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+if (-not $promoterOk -or -not $graphOk) {
+  Write-Output "[daily] BrainWorks maintenance FAILED."
+  exit 1
 }
 
 Write-Output "[daily] BrainWorks maintenance complete."

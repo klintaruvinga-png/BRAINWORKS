@@ -199,6 +199,10 @@ Get-Content $logPath | ForEach-Object {
         $lineWarnings += "Line ${lineNumber}: metric is only allowed on layers: $($metricAllowedLayers -join ', ')."
       }
 
+      if ($metricAllowedLayers -contains $obsLayer -and -not $hasMetric) {
+        $lineWarnings += "Line ${lineNumber}: $obsLayer layer requires a metric field."
+      }
+
       if ($hasMetric -and $metricAllowedLayers -contains $obsLayer) {
         $m = $obs.metric
         if ($obsLayer -eq 'knowledge') {
@@ -216,6 +220,14 @@ Get-Content $logPath | ForEach-Object {
           $sevField = if ($obsLayer -eq 'gap') { 'importance' } else { 'likelihood' }
           if (-not $m.PSObject.Properties.Name.Contains($sevField) -or $allowedSeverity -notcontains [string]$m.$sevField) {
             $lineWarnings += "Line ${lineNumber}: $obsLayer metric '$sevField' must be one of: $($allowedSeverity -join ', ')."
+          }
+        }
+        if ($obsLayer -eq 'belief') {
+          if (-not $m.PSObject.Properties.Name.Contains('conviction') -or $allowedSeverity -notcontains [string]$m.conviction) {
+            $lineWarnings += "Line ${lineNumber}: belief metric 'conviction' must be one of: $($allowedSeverity -join ', ')."
+          }
+          if (-not $m.PSObject.Properties.Name.Contains('updates') -or ($m.updates -isnot [int] -and $m.updates -isnot [long]) -or $m.updates -lt 1) {
+            $lineWarnings += "Line ${lineNumber}: belief metric 'updates' must be a positive integer."
           }
         }
       }
@@ -284,7 +296,7 @@ Get-Content $logPath | ForEach-Object {
 
     if ($obs.PSObject.Properties.Name.Contains('layer')) {
       $ol = [string]$obs.layer
-      if ($ol -in @('knowledge', 'gap', 'mistake', 'bias', 'belief', 'habit', 'mental_model', 'identity')) {
+      if ($ol -in @('knowledge', 'gap', 'mistake', 'bias', 'belief')) {
         $hasCognitiveExtension = $true
       }
     }
@@ -299,7 +311,7 @@ Get-Content $logPath | ForEach-Object {
   }
 
   if (-not $hasCognitiveExtension) {
-    $lineWarnings += "Line ${lineNumber}: no cognitive-extension layer (knowledge/gap/mistake/bias/belief/habit/mental_model/identity). Add one when observed."
+    $lineWarnings += "Line ${lineNumber}: no cognitive-extension layer (knowledge/gap/mistake/bias/belief). Add one when observed."
   }
 
   if ($StrictEvidenceBlocks) {

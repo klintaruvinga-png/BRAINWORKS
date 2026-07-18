@@ -234,7 +234,7 @@ Get-Content $logPath | ForEach-Object {
 
     # Recency metric capture for quantitative layers (overwrites by latest date).
     if ($obsLayer -and $recencyLayers.Contains($obsLayer) -and $obs.PSObject.Properties.Name.Contains('metric') -and $null -ne $obs.metric) {
-      $isNewer = (-not $metricState.ContainsKey($canonicalTrait)) -or ($entryDate -gt $metricState[$canonicalTrait].date)
+      $isNewer = (-not $metricState.ContainsKey($canonicalTrait)) -or ($entryDate -ge $metricState[$canonicalTrait].date)
       if ($isNewer) {
         $metricState[$canonicalTrait] = [ordered]@{
           date = $entryDate
@@ -276,6 +276,11 @@ foreach ($traitName in ($traits.Keys | Sort-Object)) {
       categories = $categoryList
       resolution = 'Add canonical_category in trait_rules.json before promotion.'
     }) | Out-Null
+    continue
+  }
+
+  # Recency layers (knowledge/gap/mistake/belief) go to metricState only, not rule-of-three promotion.
+  if ($traitLayer -and $recencyLayers.Contains($traitLayer)) {
     continue
   }
 
