@@ -159,6 +159,60 @@ Agents must observe and record personality traits with the same rigour as techni
 
 ---
 
+## Knowledge & Confidence Map
+
+Grasp vs self-confidence, by topic. Quantitative; updated by recency, not promotion gate.
+`knowledge` = assessed understanding (0-100). `confidence` = how sure Kudzie feels (0-100).
+A gap between the two is a signal: high confidence / low knowledge = overconfidence risk.
+
+| Topic | Subtopic | Knowledge | Confidence | Last Reviewed |
+|---|---|---|---|---|
+| | | | | |
+
+---
+
+## Knowledge Gaps
+
+Misunderstandings and under-explored areas. Curated from `layer: gap` evidence.
+Severity from `seen` (conversation count) and `importance`.
+
+| Gap | Evidence | Importance | Recommendation | Confidence |
+|---|---|---|---|---|
+| | | | | |
+
+---
+
+## Mistake Library
+
+Repeated error patterns. Curated from `layer: mistake` evidence.
+`occurred` = project count; `likelihood` = recurrence risk.
+
+| Mistake | Occurred | Likelihood | Recommendation | Confidence |
+|---|---|---|---|---|
+| | | | | |
+
+---
+
+## Thinking Biases
+
+Recurring reasoning preferences and blind spots. Curated from `layer: bias` evidence.
+
+| Bias | Confidence | Notes |
+|---|---|---|
+| | | |
+
+---
+
+## Belief Evolution
+
+Opinions that changed, with the evidence that moved them. Curated from `layer: belief`.
+
+| Belief | Prior | Current | Evidence | Date |
+|---|---|---|---|---|
+| | | | | |
+
+---
+
 ## Standards
 
 | Standard | Detail | Confidence |

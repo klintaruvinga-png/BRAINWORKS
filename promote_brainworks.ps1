@@ -145,6 +145,25 @@ $sectionMap = @{
   decision_making = 'Decision Making'
 }
 
+# Layer -> BrainWorks.md section. Layers take precedence over category when present.
+$layerSectionMap = @{
+  identity = 'Identity'
+  knowledge = 'Knowledge & Confidence Map'
+  gap = 'Knowledge Gaps'
+  mistake = 'Mistake Library'
+  bias = 'Thinking Biases'
+  belief = 'Belief Evolution'
+  habit = 'Work Habits'
+  mental_model = 'Mental Models'
+}
+
+# Quantitative layers updated by recency, not by date-count promotion.
+$recencyLayers = New-Object System.Collections.Generic.HashSet[string]
+foreach ($l in @('knowledge', 'gap', 'mistake', 'belief')) { [void]$recencyLayers.Add($l) }
+
+# Latest metric per canonical trait (recency overwrite) for quantitative layers.
+$metricState = @{}
+
 $traits = @{}
 $conflicts = New-Object System.Collections.Generic.List[object]
 $lineNumber = 0
@@ -170,22 +189,34 @@ Get-Content $logPath | ForEach-Object {
       continue
     }
 
-    if (-not $traits.ContainsKey($canonicalTrait)) {
-      $canonicalCategory = if ($traitRules.canonicalCategoryMap.ContainsKey($canonicalTrait)) {
-        [string]$traitRules.canonicalCategoryMap[$canonicalTrait]
-      }
-      else {
-        [string]$obs.category
-      }
+    $obsLayer = if ($obs.PSObject.Properties.Name.Contains('layer')) { [string]$obs.layer } else { '' }
+    $resolvedCategory = if ($obsLayer -and $layerSectionMap.ContainsKey($obsLayer)) {
+      $obsLayer
+    }
+    elseif ($traitRules.canonicalCategoryMap.ContainsKey($canonicalTrait)) {
+      [string]$traitRules.canonicalCategoryMap[$canonicalTrait]
+    }
+    else {
+      [string]$obs.category
+    }
 
+    if (-not $traits.ContainsKey($canonicalTrait)) {
       $traits[$canonicalTrait] = [ordered]@{
-        category = $canonicalCategory
+        category = $resolvedCategory
+        layer = $obsLayer
         dates = New-Object System.Collections.Generic.HashSet[string]
         details = New-Object System.Collections.Generic.List[string]
         originalTraits = New-Object System.Collections.Generic.HashSet[string]
         aliasTraits = New-Object System.Collections.Generic.HashSet[string]
         categories = New-Object System.Collections.Generic.HashSet[string]
         hasCanonicalCategory = $traitRules.canonicalCategoryMap.ContainsKey($canonicalTrait)
+      }
+    }
+    else {
+      # keep a layer if one was seen
+      if ($obsLayer -and -not $traits[$canonicalTrait]['layer']) {
+        $traits[$canonicalTrait]['layer'] = $obsLayer
+        if ($layerSectionMap.ContainsKey($obsLayer)) { $traits[$canonicalTrait]['category'] = $obsLayer }
       }
     }
 
@@ -200,6 +231,19 @@ Get-Content $logPath | ForEach-Object {
     if ($obs.detail -and -not $traits[$canonicalTrait]['details'].Contains($obs.detail)) {
       [void]$traits[$canonicalTrait]['details'].Add($obs.detail)
     }
+
+    # Recency metric capture for quantitative layers (overwrites by latest date).
+    if ($obsLayer -and $recencyLayers.Contains($obsLayer) -and $obs.PSObject.Properties.Name.Contains('metric') -and $null -ne $obs.metric) {
+      $isNewer = (-not $metricState.ContainsKey($canonicalTrait)) -or ($entryDate -ge $metricState[$canonicalTrait].date)
+      if ($isNewer) {
+        $metricState[$canonicalTrait] = [ordered]@{
+          date = $entryDate
+          layer = $obsLayer
+          metric = $obs.metric
+          detail = [string]$obs.detail
+        }
+      }
+    }
   }
 }
 
@@ -211,7 +255,16 @@ foreach ($traitName in ($traits.Keys | Sort-Object)) {
   $dateList = ConvertTo-SortedArray $trait['dates']
   $count = $trait['dates'].Count
   $category = [string]$trait['category']
-  $target = if ($sectionMap.ContainsKey($category)) { $sectionMap[$category] } else { 'Behavioural Observations' }
+  $traitLayer = if ($trait['layer']) { [string]$trait['layer'] } else { '' }
+  $target = if ($traitLayer -and $layerSectionMap.ContainsKey($traitLayer)) {
+    $layerSectionMap[$traitLayer]
+  }
+  elseif ($sectionMap.ContainsKey($category)) {
+    $sectionMap[$category]
+  }
+  else {
+    'Behavioural Observations'
+  }
   $proposedText = if ($trait['details'].Count -gt 0) { $trait['details'][$trait['details'].Count - 1] } else { $traitName }
   $originalList = ConvertTo-SortedArray $trait['originalTraits']
   $aliasList = ConvertTo-SortedArray $trait['aliasTraits']
@@ -223,6 +276,11 @@ foreach ($traitName in ($traits.Keys | Sort-Object)) {
       categories = $categoryList
       resolution = 'Add canonical_category in trait_rules.json before promotion.'
     }) | Out-Null
+    continue
+  }
+
+  # Recency layers (knowledge/gap/mistake/belief) go to metricState only, not rule-of-three promotion.
+  if ($traitLayer -and $recencyLayers.Contains($traitLayer)) {
     continue
   }
 
@@ -299,6 +357,20 @@ else {
     Write-Output (" Existing: (not yet tracked)" -f '')
     Write-Output (" New evidence: (not yet tracked)" -f '')
     Write-Output (" Resolution: {0}" -f $item['resolution'])
-  }
-}
-Write-Output '---'
+      }
+    }
+    Write-Output ''
+    Write-Output 'QUANTITATIVE METRIC STATE (recency, not promotion-gated):'
+
+    if ($metricState.Count -eq 0) {
+      Write-Output ' None yet. Quantitative layers (knowledge/gap/mistake/belief) accrue metric state as agents log them.'
+    }
+    else {
+      foreach ($key in ($metricState.Keys | Sort-Object)) {
+        $ms = $metricState[$key]
+        $m = $ms.metric
+        $metricJson = $m | ConvertTo-Json -Compress -Depth 5
+        Write-Output (" Trait: {0} | layer: {1} | date: {2} | metric: {3}" -f $key, $ms.layer, $ms.date, $metricJson)
+      }
+    }
+    Write-Output '---'

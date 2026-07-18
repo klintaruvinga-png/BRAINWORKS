@@ -100,6 +100,10 @@ $requiredObservation = @('category', 'trait', 'detail', 'confidence')
 $requiredRuleFlag = @('trait', 'times_observed', 'promote')
 $allowedCategories = @('personality', 'workflow', 'technical', 'communication', 'decision_making')
 $allowedConfidence = @('Tentative', 'Moderate', 'Strong', 'Confirmed')
+$allowedLayers = @('identity', 'knowledge', 'gap', 'mistake', 'bias', 'belief', 'habit', 'mental_model', 'personality', 'workflow', 'technical', 'communication', 'decision_making')
+$metricAllowedLayers = @('knowledge', 'gap', 'mistake', 'belief')
+$allowedSeverity = @('Low', 'Medium', 'High')
+$severityObservationLayers = @('gap', 'mistake')
 
 $lineNumber = 0
 $issues = @()
@@ -184,6 +188,49 @@ Get-Content $logPath | ForEach-Object {
       if ($obs.confidence -and $allowedConfidence -notcontains $obs.confidence) {
         $lineIssues += "Line ${lineNumber}: invalid confidence '$($obs.confidence)'."
       }
+
+      $obsLayer = if ($obs.PSObject.Properties.Name.Contains('layer')) { [string]$obs.layer } else { '' }
+      if ($obsLayer -and $allowedLayers -notcontains $obsLayer) {
+        $lineWarnings += "Line ${lineNumber}: observation layer '$obsLayer' is not a recognized layer key."
+      }
+
+      $hasMetric = $obs.PSObject.Properties.Name.Contains('metric') -and $null -ne $obs.metric
+      if ($hasMetric -and $metricAllowedLayers -notcontains $obsLayer) {
+        $lineWarnings += "Line ${lineNumber}: metric is only allowed on layers: $($metricAllowedLayers -join ', ')."
+      }
+
+      if ($metricAllowedLayers -contains $obsLayer -and -not $hasMetric) {
+        $lineWarnings += "Line ${lineNumber}: $obsLayer layer requires a metric field."
+      }
+
+      if ($hasMetric -and $metricAllowedLayers -contains $obsLayer) {
+        $m = $obs.metric
+        if ($obsLayer -eq 'knowledge') {
+          foreach ($k in @('knowledge', 'confidence')) {
+            if (-not $m.PSObject.Properties.Name.Contains($k) -or ($m.$k -isnot [int] -and $m.$k -isnot [long]) -or $m.$k -lt 0 -or $m.$k -gt 100) {
+              $lineWarnings += "Line ${lineNumber}: knowledge metric '$k' must be an integer 0-100."
+            }
+          }
+        }
+        if ($severityObservationLayers -contains $obsLayer) {
+          $countField = if ($obsLayer -eq 'gap') { 'seen' } else { 'occurred' }
+          if (-not $m.PSObject.Properties.Name.Contains($countField) -or ($m.$countField -isnot [int] -and $m.$countField -isnot [long]) -or $m.$countField -lt 1) {
+            $lineWarnings += "Line ${lineNumber}: $obsLayer metric '$countField' must be a positive integer."
+          }
+          $sevField = if ($obsLayer -eq 'gap') { 'importance' } else { 'likelihood' }
+          if (-not $m.PSObject.Properties.Name.Contains($sevField) -or $allowedSeverity -notcontains [string]$m.$sevField) {
+            $lineWarnings += "Line ${lineNumber}: $obsLayer metric '$sevField' must be one of: $($allowedSeverity -join ', ')."
+          }
+        }
+        if ($obsLayer -eq 'belief') {
+          if (-not $m.PSObject.Properties.Name.Contains('conviction') -or $allowedSeverity -notcontains [string]$m.conviction) {
+            $lineWarnings += "Line ${lineNumber}: belief metric 'conviction' must be one of: $($allowedSeverity -join ', ')."
+          }
+          if (-not $m.PSObject.Properties.Name.Contains('updates') -or ($m.updates -isnot [int] -and $m.updates -isnot [long]) -or $m.updates -lt 1) {
+            $lineWarnings += "Line ${lineNumber}: belief metric 'updates' must be a positive integer."
+          }
+        }
+      }
     }
   }
 
@@ -236,6 +283,7 @@ Get-Content $logPath | ForEach-Object {
 
   $hasPersonality = $false
   $hasTechnicalOrWorkflow = $false
+  $hasCognitiveExtension = $false
 
   foreach ($obs in $entry.observations) {
     if ($obs.category -eq 'personality') {
@@ -245,6 +293,13 @@ Get-Content $logPath | ForEach-Object {
     if ($obs.category -in @('workflow', 'technical', 'communication', 'decision_making')) {
       $hasTechnicalOrWorkflow = $true
     }
+
+    if ($obs.PSObject.Properties.Name.Contains('layer')) {
+      $ol = [string]$obs.layer
+      if ($ol -in @('knowledge', 'gap', 'mistake', 'bias', 'belief')) {
+        $hasCognitiveExtension = $true
+      }
+    }
   }
 
   if (-not $hasPersonality) {
@@ -253,6 +308,10 @@ Get-Content $logPath | ForEach-Object {
 
   if (-not $hasTechnicalOrWorkflow) {
     $lineWarnings += "Line ${lineNumber}: missing technical or workflow observation."
+  }
+
+  if (-not $hasCognitiveExtension) {
+    $lineWarnings += "Line ${lineNumber}: no cognitive-extension layer (knowledge/gap/mistake/bias/belief). Add one when observed."
   }
 
   if ($StrictEvidenceBlocks) {

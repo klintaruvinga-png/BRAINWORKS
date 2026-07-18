@@ -25,6 +25,17 @@ if (-not $OpenClawWorkspace) {
   }
 }
 
+$cognitiveExtensionNote = @"
+
+Cognitive-extension layers (log when observed, in addition to the mandatory pair):
+- knowledge: assess Kudzie's grasp (0-100) and self-confidence (0-100) of a topic; emit a metric.
+- gap: a misunderstanding or a topic asked about repeatedly; emit metric with seen/importance/recommendation.
+- mistake: a repeated error pattern across projects; emit metric with occurred/likelihood/recommendation.
+- bias: a recurring reasoning preference or blind spot.
+- belief: a stated opinion that changed; emit metric with prior/current/evidence.
+See $Root\agent_write_instruction.md for the exact layer vocabulary, metric shapes, and examples.
+"@
+
 $producerProtocol = @"
 # BrainWorks Producer Protocol
 
@@ -40,7 +51,7 @@ BrainWorks lives at $Root.
 - Record both personality and technical or workflow evidence every session.
 - Follow the exact schema and rules in $Root\agent_write_instruction.md.
 - OpenClaw is the only curator allowed to promote evidence into BrainWorks.md.
-"@
+"@ + $cognitiveExtensionNote
 
 $copilotInstruction = @"
 ---
@@ -58,7 +69,7 @@ This machine uses BrainWorks at $Root.
 - For BrainWorks files outside the current project workspace, prefer terminal reads such as Get-Content over file-reader tools when possible.
 - Record both personality and technical or workflow evidence.
 - Follow $Root\agent_write_instruction.md for the exact schema and rules.
-"@
+"@ + $cognitiveExtensionNote
 
 $copilotCliInstruction = @"
 # BrainWorks Producer Protocol
@@ -74,7 +85,7 @@ BrainWorks lives at $Root.
 - If direct append is unavailable, output the JSON block for manual paste.
 - Record both personality and technical or workflow evidence every session.
 - Follow $Root\agent_write_instruction.md for the exact schema and rules.
-"@
+"@ + $cognitiveExtensionNote
 
 $cursorRule = @"
 ---
@@ -90,7 +101,7 @@ alwaysApply: true
 - Use -Json only when the payload is already stored in a PowerShell variable.
 - Record both personality and technical or workflow evidence.
 - Follow $Root\agent_write_instruction.md for the exact schema and rules.
-"@
+"@ + $cognitiveExtensionNote
 
 $antigravityAgents = @"
 # Global Antigravity Agent Rules
@@ -107,7 +118,7 @@ BrainWorks lives at $Root.
 - If direct append is unavailable, output the JSON block for manual paste.
 - Record both personality and technical or workflow evidence every session.
 - Follow the exact schema and rules in $Root\agent_write_instruction.md.
-"@
+"@ + $cognitiveExtensionNote
 
 $openClawProtocol = @"
 # BrainWorks Curator Protocol
