@@ -303,6 +303,26 @@ How agents should work with Kudzie. Updated as patterns are confirmed.
 
 ---
 
+## Cognitive Model Taxonomy
+
+How the curator should distil accumulating evidence into compressed intelligence. Observations in `observations.jsonl` are raw signal; this taxonomy is the target shape for promoted content.
+
+Each promoted cluster should resolve into one or more of these buckets:
+
+| Bucket | What it holds | Example |
+|---|---|---|
+| Immutable Identity | Stable facts about Kudzie that rarely change | Occupation, primary domains, preferred name |
+| Stable Preferences | Enduring operating principles | Systems over tools, single source of truth, challenge-me |
+| Heuristics | "When X, prefer Y because Z" rules | When a fix looks done, cross-check the diff before accepting |
+| Patterns | Repeated behaviours, strengths, blind spots | Architecture-upgrade reflex, scope-expansion risk |
+| Decision Records | Why a major choice was made, alternatives rejected, revisit conditions | OneDrive as source of truth, locked before data collection |
+| Anti-Patterns | Known failure modes to avoid | Overengineering, endless refinement, duplicated logic |
+| Lessons Learned | Post-hoc corrections with evidence | Agent self-report is not verification |
+
+Principles over facts: a promoted entry should state the rule that generalizes, not just the instance observed.
+
+---
+
 ## Changelog
 
 | Date | Agent | Summary | Reason | Confidence |
