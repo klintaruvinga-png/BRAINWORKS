@@ -1,9 +1,9 @@
 # BrainWorks.md
 
-> **Version:** 0.3
+> **Version:** 0.4
 > **Initialised:** 2026-06-28
 > **Custodian:** OpenClaw Curator
-> **Last Updated:** 2026-06-29
+> **Last Updated:** 2026-07-24
 > **Source Log:** `observations.jsonl`
 
 ---
@@ -55,6 +55,10 @@ OpenClaw is the curator responsible for promotion, conflict handling, and change
 **Owner: Kudzie - input through sessions only.**
 
 *Populated from observed session evidence and promoted by the protocol.*
+
+| Principle | Confidence | Notes |
+|---|---|---|
+| Agents are granted owner-level autonomy for low-stakes micro-decisions and are expected to act as owner, not consultant. They should challenge assumptions respectfully rather than agree by default. | Confirmed | Directly stated 2026-07-01 (wants_pragmatic_challenge_partner) and 2026-07-18 (grants_agent_owner_autonomy). Kudzie: "act as owner, not consultant"; KudzBot should "challenge assumptions respectfully rather than agreeing by default." |
 
 ---
 
@@ -199,7 +203,7 @@ Recurring reasoning preferences and blind spots. Curated from `layer: bias` evid
 
 | Bias | Confidence | Notes |
 |---|---|---|
-| | | |
+| Verify the premise before locking a recommendation; treat "done" claims and even one's own prior notes as unverified until independently checked. | Confirmed | Directly stated 2026-07-20 (requires_premise_verification). Codified as "Verify, don't assume" in RMP AGENTS.md. Agent self-reports and green automated checks are partial signal, not completion. |
 
 ---
 
@@ -303,6 +307,26 @@ How agents should work with Kudzie. Updated as patterns are confirmed.
 
 ---
 
+## Cognitive Model Taxonomy
+
+How the curator should distil accumulating evidence into compressed intelligence. Observations in `observations.jsonl` are raw signal; this taxonomy is the target shape for promoted content.
+
+Each promoted cluster should resolve into one or more of these buckets:
+
+| Bucket | What it holds | Example |
+|---|---|---|
+| Immutable Identity | Stable facts about Kudzie that rarely change | Occupation, primary domains, preferred name |
+| Stable Preferences | Enduring operating principles | Systems over tools, single source of truth, challenge-me |
+| Heuristics | "When X, prefer Y because Z" rules | When a fix looks done, cross-check the diff before accepting |
+| Patterns | Repeated behaviours, strengths, blind spots | Architecture-upgrade reflex, scope-expansion risk |
+| Decision Records | Why a major choice was made, alternatives rejected, revisit conditions | OneDrive as source of truth, locked before data collection |
+| Anti-Patterns | Known failure modes to avoid | Overengineering, endless refinement, duplicated logic |
+| Lessons Learned | Post-hoc corrections with evidence | Agent self-report is not verification |
+
+Principles over facts: a promoted entry should state the rule that generalizes, not just the instance observed.
+
+---
+
 ## Changelog
 
 | Date | Agent | Summary | Reason | Confidence |
@@ -310,3 +334,4 @@ How agents should work with Kudzie. Updated as patterns are confirmed.
 | 2026-06-28 | KudzBot | File initialised | Initial system setup | Confirmed |
 | 2026-06-28 | Codex | Normalised governance wording | Removed approval-gate ambiguity and anchored evolution to observed session input only | Confirmed |
 | 2026-06-29 | Codex | Hardened producer-curator split | Locked OpenClaw as curator and moved all other agents to evidence-only writes | Confirmed |
+| 2026-07-24 | OpenClaw | Promoted two confirmed direct-stated facts | Rule-of-three exception for confirmed user-stated facts: owner-autonomy + challenge-partner → Core Principles; verify-don't-assume → Thinking Biases. No trait met the 3-distinct-date bar. | Confirmed |
